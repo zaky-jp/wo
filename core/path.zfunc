@@ -1,0 +1,109 @@
+#!/usr/bin/env zsh
+
+# ==============================
+# available functions
+# ==============================
+# interacting with stdout:
+#  - path.get_absolute
+#  - path.get_dirname
+#
+# return boolean:
+#  - path.exist
+#
+# perform action:
+#  - path.do_mkdir
+#  - path.do_symlink
+#  - path.do_backup
+#  - path.do_rm
+# ==============================
+
+function path.get_absolute() {
+  local p=$1
+  echo "${p:a}"
+  return 0
+}
+
+function path.get_dirname() {
+  local p=$1
+  echo "${p:h}"
+  return 0
+}
+
+function path.exist() {
+  local p=$1
+  [[ -d "$p" || -e "$p" || -s "$p" ]] # -e does not work for symlinks at macos
+}
+
+function path.do_mkdir() {
+  local dp=$1
+  if [[ -d "$dp" ]]; then
+    log.info "$dp already exists"
+    return 0
+  elif path.exist "$dp"; then
+    log.warn "$dp already exists but is not a directory"
+    return 1
+  else
+    log.info "Creating directory $dp"
+    mkdir -p "$dp"
+    return $?
+  fi
+}
+
+function path.do_symlink() {
+  local src
+  src=$(path.get_absolute "$1")
+  local link=$2
+  if [[ $# != 2 ]]; then
+    log.warn "path.do_symlink: not enough arguments"
+    return 2
+  elif ! path.exist "$src"; then
+    log.warn "$src does not exist"
+    return 1
+  elif path.exist "$link"; then
+    log.warn "$link already exists"
+    return 1
+  else
+    local link_dir
+    link_dir=$(path.get_dirname "$link")
+    path.do_mkdir "$link_dir" # make sure destination directory exists
+  fi
+
+  log.info "Symlinking $src to $link"
+  ln -s "$src" "$link"
+}
+
+function path.do_backup() {
+  local p=$1
+  local b="${p}.bak"
+  if ! path.exist "$p"; then
+    log.warn "$p does not exist"
+    return 1
+  elif path.exist "$b"; then
+    log.warn "$b already exists"
+    return 1
+  else
+    log.info "Backing up $p"
+    cp "$p" "$b"
+    return $?
+  fi
+}
+
+function path.do_rm() {
+  local p=$1
+  if ! path.exist "$p"; then
+    log.warn "$p does not exist"
+    return 1
+  fi
+
+  if [[ -d "$p" ]]; then
+    log.info "Removing directory $p"
+    rm -r "$p"
+    return $?
+  else
+    log.info "Removing file $p"
+    rm "$p"
+    return $?
+  fi
+}
+
+# vim: filetype=zsh:

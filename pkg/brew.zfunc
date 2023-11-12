@@ -1,0 +1,58 @@
+#!/usr/bin/env zsh
+
+# ==============================
+# environment variables
+# ==============================
+# WO_BREW_CACHE:
+#   - path to json file containing brew package info
+# WO_BREW_USER:
+#   - user running brew
+# ==============================
+
+# ==============================
+# available functions
+# ==============================
+# add hooks:
+#  - brew
+#
+# perform actions:
+#  - brew.load
+#
+# internal:
+#  - brew._create_cache
+# ============================== 
+
+function brew() {
+  local verb=$1
+  if (dscl . -list /Users | grep -q "${WO_BREW_USER}"); then
+    sudo -u ${WO_BREW_USER} -- "${commands[brew]}" "$@"
+  else
+    command brew "$@"
+  fi
+
+  case $verb in
+    (install|update|remove|purge)
+      brew.load
+      ;;
+  esac
+}
+
+function brew.load() {
+  require cmd 'jq' || return 1
+  if [[ ! -f "${WO_BREW_CACHE}" ]]; then
+    brew._create_cache
+  fi
+
+  typeset -gA brews=()
+  typeset -gA casks=()
+  brews=($(jq -j '[.formulae[] | [.name, .installed[0].version] | join(" ")] | join(" ")' "${WO_BREW_CACHE}"))
+  casks=($(jq -j '[.casks[] | [.token, .version] | join(" ")] | join(" ")' "${WO_BREW_CACHE}"))
+}
+
+function brew._create_cache() {
+  path.do_mkdir "${WP_BREW_CACHE:h}"
+  log.info "generating brew info cache..."
+  brew info --installed --json=v2 > "${WO_BREW_CACHE}"
+}
+
+# vim: se filetype=zsh:

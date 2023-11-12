@@ -1,0 +1,48 @@
+#!/usr/bin/env zsh
+
+# ==============================
+# environment variables
+# ==============================
+# WO_LOG_INDENT:
+#   - indenting string used for log.info function
+# ==============================
+
+# ==============================
+# available functions
+# ==============================
+# interacting with stdout and stderr:
+# - log.notice
+# - log.info
+# - log.warn
+# - log.fatal
+#
+# internal:
+# - log._print
+# - log._error
+# ==============================
+
+function log.notice(){
+  log._print "\n%F{green}$*%f"
+}
+
+function log.info(){
+  log._print "${WO_LOG_INDENT}$*"
+}
+
+function log.warn(){
+  log._error "%F{red}$*%f"
+}
+
+function log.fatal(){
+  log._error "%F{red}$*%f"
+  exit 1
+}
+
+function log._print(){
+  print -P "$*"
+}
+
+function log._error() {
+  print -P "$*" 1>&2
+}
+# vim: filetype=zsh:

@@ -1,0 +1,63 @@
+#!/usr/bin/env zsh
+
+# ==============================
+# environment variables
+# ==============================
+# WO_APT_CACHE:
+#   - path to json file containing apt package info
+# ==============================
+
+# ==============================
+# available functions
+# ==============================
+# add hooks:
+#  - apt
+#  - apt-get
+#
+# perform actions:
+#  - apt.load
+#
+# internal:
+#  - apt._create_cache
+# ============================== 
+
+function apt() {
+  require cmd 'apt' || return 1
+  local verb=$1
+  sudo "${commands[apt]}" "$@"
+  case $verb in
+    (install|reinstall|upgrade|full-upgrade|remove|purge|autoremove)
+      apt.load
+      ;;
+  esac
+}
+
+function apt-get() {
+  local verb=$1
+  log.info "may be prompted for your password to execute apt"
+  sudo "${commands[apt-get]}" "$@"
+  case $verb in
+    (install|reinstall|upgrade|dselect-upgrade|dist-upgrade|remove|purge)
+      apt.load
+      ;;
+  esac
+}
+
+function apt.load() {
+  require cmd 'jq' || return 1
+  if [[ ! -f "${WO_APT_CACHE}" ]]; then
+    apt._create_cache
+  fi
+
+  typeset -gA apts=()
+  apts=($(jq -j '[[.name, .version] | join(" ")] | join(" ")' "${WO_APT_CACHE}"))
+}
+
+function apt._create_cache() {
+  path.do_mkdir "${WO_APT_CACHE:h}"
+  log.notice "generating apt info cache..."
+  dpkg-query --show -f '{"name":"${Package}","version":"${Version}","status":"${Status}"}\n' | \
+    jq -r 'select(.status=="install ok installed")' > "${WO_APT_CACHE}"
+}
+
+# vim: se filetype=zsh:

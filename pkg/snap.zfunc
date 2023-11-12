@@ -1,0 +1,50 @@
+#!/usr/bin/env zsh
+
+# ==============================
+# environment variables
+# ==============================
+# WO_SNAP_CACHE:
+#   - path to json file containing snap package info
+# ==============================
+
+# ==============================
+# available functions
+# ==============================
+# add hooks:
+#  - snap
+#
+# perform actions:
+#  - snap.load
+#
+# internal:
+#  - snap._create_cache
+# ============================== 
+function snap() {
+  require cmd 'snap'
+  local verb=$1
+  sudo "${commands[snap]}" "$@"
+  case $verb in
+    (install|refresh|remove|revert)
+      snap.load
+      ;;
+  esac
+}
+
+function snap.load() {
+  require cmd 'jq' || return 1
+  if [[ ! -f "${WO_SNAP_CACHE}" ]]; then
+    snap._create_cache
+  fi
+
+  typeset -gA snaps
+  snaps=($(cat "${WO_SNAP_CACHE}" | jq -r '.result[] | .name, .version'))
+}
+
+function snap._create_cache() {
+  path.do_mkdir "${WO_SNAP_CACHE:h}"
+  log.notice "generating snap list cache..."
+  log.info "may be prompted for your password to access snapd socket"
+  sudo curl -sS --unix-socket /run/snapd.socket http://localhost/v2/snaps | tee "${WO_SNAP_CACHE}" >/dev/null
+}
+
+# vim: filetype=zsh:
